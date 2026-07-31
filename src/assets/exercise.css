@@ -83,8 +83,10 @@ h1 {
   margin: 0 auto;
 }
 .search-box,
-.list-box {
+.list-box-task1 {
   background: #f8f9fa;
+  display: flex;
+  flex-direction: row;
   padding: 15px;
   border-radius: 8px;
   margin-bottom: 15px;

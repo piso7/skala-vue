@@ -6,9 +6,6 @@ const weatherList = ref([
   { id: 'city_01', name: '서울', temp: 28, status: '맑음' },
   { id: 'city_02', name: '수원', temp: 24, status: '비' },
   { id: 'city_03', name: '부산', temp: 26, status: '구름' },
-  { id: 'city_04', name: '대전', temp: 22, status: '흐림' },
-  { id: 'city_05', name: '광주', temp: 30, status: '맑음' },
-  { id: 'city_06', name: '제주', temp: 27, status: '비' },
 ])
 
 // 검색어 및 알림창 제어용 데이터 (v-model 대용 한글 처리 및 이벤트 실습용)
@@ -23,7 +20,7 @@ const showDetail = (cityName, status) => {
 
 <template>
   <div class="dashboard-wrapper">
-    <section class="search-box"> 
+    <section class="search-box">
       <h3>🔍 도시 검색</h3>
       <!-- input type="text" v-model="searchQuery" placeholder="검색할 도시 이름 입력" / -->
       <input type="text" :value="searchQuery" @input="(e) => (searchQuery = e.target.value)" placeholder="검색할 도시 이름 입력" />
@@ -32,7 +29,7 @@ const showDetail = (cityName, status) => {
       </p>
     </section>
 
-    <section class="list-box-task1">
+    <section class="list-box">
       <h3>🏙️ 지역별 날씨 현황</h3>
 
       <div v-for="item in weatherList" :key="item.id" class="weather-card" @click="selectedCityInfo = `${item.name}이 선택되었습니다.`">
@@ -48,8 +45,6 @@ const showDetail = (cityName, status) => {
 
     <div class="status-bar">
       {{ selectedCityInfo }}
-    </div> 
+    </div>
   </div>
 </template>
-
-<!-- input; border 를 none 으로 제거하고 글씨가 있을떄 bg 를 바꿔주기  -->
