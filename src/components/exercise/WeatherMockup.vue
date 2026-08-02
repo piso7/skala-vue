@@ -3,17 +3,35 @@ import { ref } from 'vue'
 
 // 4일차 API 연동을 대비한 가상의 백엔드 데이터 배열 (v-for 및 :key 실습용)
 const weatherList = ref([
-  { id: 'city_01', name: '서울', temp: 28, status: '맑음' },
-  { id: 'city_02', name: '수원', temp: 24, status: '비' },
-  { id: 'city_03', name: '부산', temp: 26, status: '구름' },
-  { id: 'city_04', name: '대전', temp: 22, status: '흐림' },
-  { id: 'city_05', name: '광주', temp: 30, status: '맑음' },
-  { id: 'city_06', name: '제주', temp: 27, status: '비' },
+  { id: 'city_01', name: '서울', temp: 28, status: '맑음', area: '국내' },
+  { id: 'city_02', name: '수원', temp: 24, status: '비', area: '국내' },
+  { id: 'city_03', name: '부산', temp: 26, status: '구름', area: '국내' },
+  { id: 'city_04', name: '대전', temp: 22, status: '흐림', area: '국내' },
+  { id: 'city_05', name: '광주', temp: 30, status: '맑음', area: '국내' },
+  { id: 'city_06', name: '제주', temp: 27, status: '비', area: '국내' },
+  { id: 'city_07', name: '도쿄', temp: 31, status: '맑음', area: '해외' },
+  { id: 'city_08', name: '뉴욕', temp: 19, status: '흐림', area: '해외' },
+  { id: 'city_09', name: '파리', temp: 21, status: '구름', area: '해외' },
+  { id: 'city_10', name: '시드니', temp: 15, status: '비', area: '해외' },
 ])
 
 // 검색어 및 알림창 제어용 데이터 (v-model 대용 한글 처리 및 이벤트 실습용)
 const searchQuery = ref('')
 const selectedCityInfo = ref('카드를 클릭하거나 검색해 보세요.')
+const selectedCity = ref('')
+const selectedArea = ref('')
+
+const selectCity = (item) => {
+  selectedCity.value = item.name
+  selectedArea.value = item.area
+  selectedCityInfo.value = `${item.name}의 날씨는 ${item.status}, ${item.temp}°C 입니다.`
+}
+
+const showAllCity = () => {
+  selectedCity.value = ''
+  selectedArea.value = ''
+  selectedCityInfo.value = '카드를 클릭하거나 검색해 보세요.'
+}
 
 // 알림 대행 함수 (window 객체 격리 우회)
 const showDetail = (cityName, status) => {
@@ -23,7 +41,7 @@ const showDetail = (cityName, status) => {
 
 <template>
   <div class="dashboard-wrapper">
-    <section class="search-box"> 
+    <section class="search-box-task1">
       <h3>🔍 도시 검색</h3>
       <!-- input type="text" v-model="searchQuery" placeholder="검색할 도시 이름 입력" / -->
       <input type="text" :value="searchQuery" @input="(e) => (searchQuery = e.target.value)" placeholder="검색할 도시 이름 입력" />
@@ -32,24 +50,71 @@ const showDetail = (cityName, status) => {
       </p>
     </section>
 
+    <section class="area-box">
+      <h3>📍 지역 선택</h3>
+
+
+
+      <div class="area-row">
+        <span class="area-label">국내</span>
+        <button v-for="item in weatherList" :key="item.id" v-show="item.area === '국내'" class="area-btn" :class="{ on: selectedCity === item.name }" @click="selectCity(item)">
+          {{ item.name }}
+        </button>
+      </div>
+
+
+
+      <div class="area-row">
+        <span class="area-label">해외</span>
+        <button v-for="item in weatherList" :key="item.id" v-show="item.area === '해외'" class="area-btn" :class="{ on: selectedCity === item.name }" @click="selectCity(item)">
+          {{ item.name }}
+        </button>
+      </div>
+
+
+
+      <button class="btn-all" @click="showAllCity">전체 보기</button>
+    </section>
+
     <section class="list-box-task1">
       <h3>🏙️ 지역별 날씨 현황</h3>
 
-      <div v-for="item in weatherList" :key="item.id" class="weather-card" @click="selectedCityInfo = `${item.name}이 선택되었습니다.`">
-        <h4>{{ item.name }} ({{ item.status }})</h4>
-        <p>현재 기온: {{ item.temp }}°C</p>
 
-        <span v-if="item.temp >= 25" class="badge hot">🔥 더움 (25도 이상)</span>
-        <span v-else class="badge cool">❄️ 선선함 (25도 미만)</span>
+      <div v-show="selectedArea === '' || selectedArea === '국내'">
+        <h4 class="list-title">국내</h4>
+        <div class="card-list">
+          <div v-for="item in weatherList" :key="item.id" v-show="item.area === '국내' && (selectedCity === '' || selectedCity === item.name)" class="weather-card" @click="selectCity(item)">
+            <h4>{{ item.name }} ({{ item.status }})</h4>
+            <p>현재 기온: {{ item.temp }}°C</p>
 
-        <button class="btn-detail" @click.stop="showDetail(item.name, item.status)">상세보기</button>
+            <span v-if="item.temp >= 25" class="badge hot">🔥 더움 (25도 이상)</span>
+            <span v-else class="badge cool">❄️ 선선함 (25도 미만)</span>
+
+            <button class="btn-detail" @click.stop="showDetail(item.name, item.status)">상세보기</button>
+          </div>
+        </div>
+      </div>
+
+      <div v-show="selectedArea === '' || selectedArea === '해외'">
+        <h4 class="list-title">해외</h4>
+        <div class="card-list">
+          <div v-for="item in weatherList" :key="item.id" v-show="item.area === '해외' && (selectedCity === '' || selectedCity === item.name)" class="weather-card" @click="selectCity(item)">
+            <h4>{{ item.name }} ({{ item.status }})</h4>
+            <p>현재 기온: {{ item.temp }}°C</p>
+
+            <span v-if="item.temp >= 25" class="badge hot">🔥 더움 (25도 이상)</span>
+            <span v-else class="badge cool">❄️ 선선함 (25도 미만)</span>
+
+            <button class="btn-detail" @click.stop="showDetail(item.name, item.status)">상세보기</button>
+          </div>
+        </div>
       </div>
     </section>
 
+
     <div class="status-bar">
       {{ selectedCityInfo }}
-    </div> 
+    </div>
   </div>
 </template>
 
-<!-- input; border 를 none 으로 제거하고 글씨가 있을떄 bg 를 바꿔주기  -->

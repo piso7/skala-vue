@@ -83,14 +83,18 @@ h1 {
   margin: 0 auto;
 }
 .search-box,
-.list-box-task1 {
+.search-box-task1,
+.list-box-task1,
+.area-box {
   background: #f8f9fa;
-  display: flex;
-  flex-direction: row;
   padding: 15px;
   border-radius: 8px;
   margin-bottom: 15px;
   border: 1px solid #e9ecef;
+}
+.search-box {
+  display: flex;
+  flex-direction: row;
 }
 input {
   padding: 8px;
@@ -133,4 +137,82 @@ input {
   color: #2e7d32;
   font-weight: bold;
   border-radius: 6px;
+}
+
+/* 과제1 지역 선택 및 카드 정렬 */
+.app-container-task1 {
+  grid-column: 1 / -1;
+  max-width: 1180px;
+}
+.app-container-task1 .dashboard-wrapper {
+  width: auto;
+}
+.search-box-task1 h3,
+.area-box h3,
+.list-box-task1 h3 {
+  margin: 0 0 10px 0;
+  font-size: 16px;
+}
+.area-row {
+  margin-bottom: 8px;
+}
+.area-label {
+  display: inline-block;
+  width: 45px;
+  font-size: 14px;
+  font-weight: bold;
+}
+.area-btn {
+  margin-right: 6px;
+  padding: 5px 12px;
+  font-size: 13px;
+  border: 1px solid #dee2e6;
+  border-radius: 15px;
+  background: #fff;
+  cursor: pointer;
+}
+.area-btn:hover {
+  background: #f1f3f5;
+}
+.area-btn.on {
+  background: #3498db;
+  border-color: #3498db;
+  color: #fff;
+}
+.btn-all {
+  margin-top: 6px;
+  padding: 5px 12px;
+  font-size: 13px;
+  border: 1px solid #dee2e6;
+  border-radius: 15px;
+  background: #fff;
+  cursor: pointer;
+}
+.list-title {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  color: #6c757d;
+}
+.card-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+.card-list .weather-card {
+  width: 170px;
+  margin-bottom: 0;
+}
+.card-list .weather-card h4 {
+  margin: 0 0 6px 0;
+  font-size: 15px;
+}
+.card-list .weather-card p {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+}
+.card-list .btn-detail {
+  position: static;
+  display: block;
+  margin-top: 8px;
 }

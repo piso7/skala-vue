@@ -6,7 +6,7 @@ import UnitToggler from './components/exercise/UnitToggler.vue'
 </script>
 
 <template>
-  <div class="app-container">
+  <div class="app-container app-container-task1">
     <h1>⛅ 과제 1: 날씨 (Mockup)</h1>
     <hr />
     <WeatherMockup />
