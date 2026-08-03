@@ -1,15 +1,15 @@
 <template>
-  <div class="base-dashboard-card">
+  <section class="base-dashboard-card">
     <slot></slot>
-  </div>
+  </section>
 </template>
 
 <style scoped>
 .base-dashboard-card {
-  background: #f8f9fa;
-  padding: 15px;
-  border-radius: 8px;
   margin-bottom: 15px;
+  padding: 15px;
   border: 1px solid #e9ecef;
+  border-radius: 8px;
+  background: #f8f9fa;
 }
 </style>

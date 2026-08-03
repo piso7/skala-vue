@@ -144,6 +144,10 @@ input {
   grid-column: 1 / -1;
   max-width: 1180px;
 }
+.app-container-task2 {
+  grid-column: 1 / -1;
+  max-width: 1180px;
+}
 .app-container-task1 .dashboard-wrapper {
   width: auto;
 }

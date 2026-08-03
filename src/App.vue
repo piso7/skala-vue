@@ -11,7 +11,7 @@ import UnitToggler from './components/exercise/UnitToggler.vue'
     <hr />
     <WeatherMockup />
   </div>
-  <div class="app-container">
+  <div class="app-container app-container-task2">
     <h1>⛅ 과제 2: 날씨 (컴포지션)</h1>
     <hr />
     <WeatherComposition />
