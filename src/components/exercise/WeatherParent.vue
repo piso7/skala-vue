@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, watchEffect } from 'vue'
+import { ref, computed, watch, watchEffect, defineAsyncComponent, inject, nextTick, onBeforeUnmount } from 'vue'
 import { useConfigStore } from '@/stores/configStore'
 import { useFavoriteStore } from '@/stores/favoriteStore'
 import { weatherCities } from '../../data/weatherCities'
@@ -11,6 +11,10 @@ import PixelFireOverlay from './PixelFireOverlay.vue'
 import PanicCrowd from './PanicCrowd.vue'
 import MeteorShower from './MeteorShower.vue'
 import StormSurvivors from './StormSurvivors.vue'
+import SkalaDisasterLogo from './SkalaDisasterLogo.vue'
+
+// 3D 모드를 선택했을 때만 Three.js와 3D 지구 파일을 불러온다.
+const EarthGlobe3D = defineAsyncComponent(() => import('./EarthGlobe3D.vue'))
 
 const props = defineProps({
   weatherData: {
@@ -50,6 +54,8 @@ const props = defineProps({
 const emit = defineEmits(['click-detail', 'update-search', 'refresh'])
 const configStore = useConfigStore()
 const favoriteStore = useFavoriteStore()
+// 상단 내비게이션의 스타링크 버튼을 누른 횟수를 App에서 전달받는다.
+const starlinkRequest = inject('starlinkRequest', ref(0))
 
 const weatherList = ref(weatherCities)
 const searchQuery = ref('')
@@ -59,7 +65,13 @@ const selectedCityInfo = ref('카드를 클릭하거나 검색해 보세요.')
 const selectedCities = ref([])
 const selectedCity = ref('')
 const globeSelectedCity = ref('')
+const globeMode = ref('2d')
+const earthFeatureSection = ref(null)
+const earthGlobeSection = ref(null)
+const isGlobeSwitchPrompted = ref(false)
 const isFahrenheit = ref(false)
+let starlinkModeTimer
+let starlinkHighlightTimer
 
 // 과제 5의 즐겨찾기만 Pinia에 저장한다. 이전 과제는 기존처럼 화면 안에서만 유지한다.
 const legacyFavoriteCities = ref([])
@@ -90,16 +102,24 @@ watch(
 )
 
 const filteredWeatherList = computed(() => {
-  const query = searchQuery.value.trim()
+  const query = searchQuery.value.trim().toLocaleLowerCase()
 
   if (!query) {
     return weatherList.value
   }
 
-  return weatherList.value.filter((item) => item.name.includes(query))
+  return weatherList.value.filter((item) => {
+    const cityNames = [item.name, item.fullName, item.apiName]
+    return cityNames.some((name) => name?.toLocaleLowerCase().includes(query))
+  })
 })
 
 const selectedWeatherList = computed(() => {
+  // 검색할 때는 기존 지역 선택과 관계없이 검색 결과를 바로 보여 준다.
+  if (searchQuery.value.trim()) {
+    return filteredWeatherList.value
+  }
+
   if (selectedCities.value.length === 0) {
     return filteredWeatherList.value
   }
@@ -148,6 +168,62 @@ const heatCityList = computed(() => {
 
 const heatTickerList = computed(() => {
   return [...heatCityList.value, ...heatCityList.value]
+})
+
+const rainyCityList = computed(() => {
+  return weatherList.value.filter((item) => item.status === '비')
+})
+
+const stormDemoNames = ['서울', '수원', '부산', '대전', '제주']
+
+// 실제 비 도시가 부족하면 여러 지역의 폭풍우 체험 카드로 빈자리를 채운다.
+const waterCityList = computed(() => {
+  const cityList = [...rainyCityList.value]
+  const usedCityNames = cityList.map((item) => item.name)
+
+  stormDemoNames.forEach((cityName, index) => {
+    if (cityList.length >= 5 || usedCityNames.includes(cityName)) {
+      return
+    }
+
+    const city = weatherList.value.find((item) => item.name === cityName)
+    if (city) {
+      cityList.push({
+        ...city,
+        status: '비',
+        description: '폭풍우 체험',
+        wind: 12 + index,
+        isStormDemo: true,
+      })
+      usedCityNames.push(cityName)
+    }
+  })
+
+  return cityList
+})
+
+const waterTickerList = computed(() => {
+  const trackItems = []
+
+  // 카드가 한 장뿐이어도 트랙이 끊겨 보이지 않도록 다섯 장까지 반복한다.
+  for (let index = 0; index < Math.max(5, waterCityList.value.length); index += 1) {
+    trackItems.push(waterCityList.value[index % waterCityList.value.length])
+  }
+
+  return [...trackItems, ...trackItems]
+})
+
+const statusText = computed(() => {
+  if (searchQuery.value.trim()) {
+    const cityNames = filteredWeatherList.value.map((item) => item.name).join(' · ')
+    return filteredWeatherList.value.length ? `검색 결과 ${filteredWeatherList.value.length}곳 · ${cityNames}` : '검색 결과가 없습니다.'
+  }
+
+  if (selectedCities.value.length) {
+    return `선택한 도시 ${selectedCities.value.length}곳 · ${selectedCities.value.join(' · ')}`
+  }
+
+  return selectedCityInfo.value
 })
 
 const selectedHotCity = ref(null)
@@ -229,7 +305,7 @@ const selectCity = (message, cityName) => {
     if (selectedCity.value === cityName) {
       selectedCity.value = selectedCities.value[0] || ''
     }
-    selectedCityInfo.value = `${cityName} 선택이 해제되었습니다.`
+    selectedCityInfo.value = selectedCities.value.length ? message : '선택한 도시가 없습니다. 전체 도시를 표시합니다.'
   }
 }
 
@@ -257,6 +333,46 @@ const resetGlobeCity = () => {
   selectedCityInfo.value = '지구 위치 선택이 초기화되었습니다.'
 }
 
+const centerStarlinkGlobe = () => {
+  if (globeMode.value !== '3d') return
+
+  // 3D 지구가 실제로 화면에 붙은 다음 지구 영역의 중심을 맞춘다.
+  earthGlobeSection.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
+
+const openStarlinkFeature = async () => {
+  clearTimeout(starlinkModeTimer)
+  clearTimeout(starlinkHighlightTimer)
+
+  // 먼저 2D 상태를 보여 준 뒤 3D 버튼이 선택되는 과정을 눈으로 확인할 수 있게 한다.
+  globeMode.value = '2d'
+  isGlobeSwitchPrompted.value = true
+  await nextTick()
+  earthFeatureSection.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+
+  starlinkModeTimer = setTimeout(() => {
+    globeMode.value = '3d'
+    starlinkHighlightTimer = setTimeout(() => {
+      isGlobeSwitchPrompted.value = false
+    }, 900)
+  }, 500)
+}
+
+watch(
+  starlinkRequest,
+  (requestCount) => {
+    if (requestCount > 0 && props.isLive) {
+      openStarlinkFeature()
+    }
+  },
+  { immediate: true },
+)
+
+onBeforeUnmount(() => {
+  clearTimeout(starlinkModeTimer)
+  clearTimeout(starlinkHighlightTimer)
+})
+
 const showHeatAlert = (cityItem) => {
   if (!props.isLive || cityItem.feels < 35) {
     return
@@ -267,8 +383,21 @@ const showHeatAlert = (cityItem) => {
   isHeatAlertVisible.value = true
 }
 
+const keepCitySelected = (cityItem) => {
+  if (!selectedCities.value.includes(cityItem.name)) {
+    selectedCities.value.push(cityItem.name)
+  }
+
+  selectedCity.value = cityItem.name
+  selectedCityInfo.value = `${cityItem.name}이 선택되었습니다.`
+}
+
+const selectSearchResult = (cityItem) => {
+  keepCitySelected(cityItem)
+}
+
 const selectHotCity = (cityItem) => {
-  selectCity(`${cityItem.name}이 선택되었습니다.`, cityItem.name)
+  keepCitySelected(cityItem)
   showHeatAlert(cityItem)
 }
 
@@ -290,17 +419,9 @@ const closeStormAlert = () => {
   isStormAlertVisible.value = false
 }
 
-// 비가 없는 날에도 폭풍우 화면을 확인할 수 있도록 안전 체험용 도시를 만든다.
-const previewStormAlert = () => {
-  const rainyCity = weatherList.value.find((item) => item.status === '비')
-  const city = rainyCity || weatherList.value[0]
-
-  showStormAlert({
-    ...city,
-    status: '비',
-    description: rainyCity ? rainyCity.description : '집중호우 안전 체험',
-    wind: rainyCity?.wind || 14,
-  })
+const selectStormCity = (cityItem) => {
+  keepCitySelected(cityItem)
+  showStormAlert(cityItem)
 }
 
 const showDetail = (cityName, status) => {
@@ -348,21 +469,43 @@ const showDetail = (cityName, status) => {
         <span>관측 도시 <b>{{ weatherList.length }}</b></span>
         <span>즐겨찾기 <b>{{ favoriteCount }}</b></span>
         <span v-if="lastUpdated">갱신 <b>{{ lastUpdated }}</b></span>
-        <button class="storm-preview-button" @click="previewStormAlert">폭풍우 안전 체험</button>
       </div>
     </div>
 
     <BaseDashboardCard class="dashboard-panel search-panel">
       <SearchBar :current-query="searchQuery" @update-query="updateSearchQuery" />
+
+      <div v-if="searchQuery.trim()" class="search-result-preview">
+        <div class="search-result-heading">
+          <strong>바로 찾은 도시</strong>
+          <span>{{ filteredWeatherList.length }}곳</span>
+        </div>
+
+        <div v-if="filteredWeatherList.length" class="search-result-list">
+          <button v-for="item in filteredWeatherList" :key="`search-${item.id}`" @click="selectSearchResult(item)">
+            <span v-if="item.area === '해외'" class="search-result-flag">{{ item.flag }}</span>
+            <span class="search-result-city">
+              <strong>{{ item.name }}</strong>
+              <small>{{ item.fullName }}</small>
+            </span>
+            <span class="search-result-weather">{{ item.description || item.status }}</span>
+            <b>{{ displayTemp(item.temp) }}°{{ isFahrenheitMode ? 'F' : 'C' }}</b>
+          </button>
+        </div>
+        <p v-else class="search-result-empty">일치하는 도시가 없습니다. 서울, Paris처럼 다시 검색해 보세요.</p>
+      </div>
     </BaseDashboardCard>
 
     <BaseDashboardCard v-if="isLive" class="dashboard-panel heat-zone">
       <div class="heat-zone-header">
         <div>
           <p>HOT CITY TRACK</p>
-          <h3>불지옥</h3>
+          <div class="zone-title-line">
+            <h3>불지옥</h3>
+            <strong>지역 박스를 클릭해 보세요 !</strong>
+          </div>
         </div>
-        <span>체감온도 35°C 이상</span>
+        <span class="zone-condition">체감온도 35°C 이상</span>
       </div>
 
       <div v-if="heatCityList.length" class="heat-ticker">
@@ -378,30 +521,84 @@ const showDetail = (cityName, status) => {
       <p v-else class="heat-empty">현재 체감온도 35°C 이상 도시가 없습니다.</p>
     </BaseDashboardCard>
 
-    <BaseDashboardCard v-if="isLive" class="dashboard-panel earth-filter-panel compact-selection">
-      <h3>지구 위치 선택</h3>
-      <p class="selection-guide">날씨 카드와 관계없이 지구에서 이동할 도시를 선택합니다.</p>
+    <BaseDashboardCard v-if="isLive" class="dashboard-panel water-zone">
+      <div class="water-zone-header">
+        <div>
+          <p>STORM CITY TRACK</p>
+          <div class="zone-title-line">
+            <h3>물지옥</h3>
+            <strong>지역 박스를 클릭해 보세요 !</strong>
+          </div>
+        </div>
+        <span class="zone-condition">비·폭풍우 관측 지역</span>
+      </div>
 
-      <div class="selection-groups">
-        <div class="area-row">
-          <span class="area-label">국내</span>
-          <button v-for="item in weatherList" :key="item.id" v-show="item.area === '국내'" class="area-btn" :class="{ on: globeSelectedCity === item.name && item.area === '국내' }" @click="selectGlobeCity(item)">
-            {{ item.name }}
+      <div class="water-ticker">
+        <div class="water-track">
+          <button v-for="(item, index) in waterTickerList" :key="`${item.id}-water-${index}`" class="water-city-card" @click="selectStormCity(item)">
+            <span v-if="item.isStormDemo" class="demo-ribbon">DEMO</span>
+            <span v-if="item.area === '해외'" class="water-flag">{{ item.flag }}</span>
+            <strong>{{ item.name }}</strong>
+            <span>{{ item.isStormDemo ? '- 폭풍우 체험' : item.description || item.status }}</span>
+            <b v-if="!item.isStormDemo">풍속 {{ item.wind || '-' }}m/s</b>
+            <b v-else class="demo-card-spacer" aria-hidden="true">&nbsp;</b>
           </button>
         </div>
-
-        <div class="area-row">
-          <span class="area-label">해외</span>
-          <button v-for="item in weatherList" :key="item.id" v-show="item.area === '해외'" class="area-btn" :class="{ on: globeSelectedCity === item.name && item.area === '해외' }" @click="selectGlobeCity(item)">
-            {{ item.name }}
-          </button>
-        </div>
-
-        <button class="btn-all" @click="resetGlobeCity">지구 초기화</button>
       </div>
     </BaseDashboardCard>
 
-    <EarthGlobe v-if="isLive" :city-item="globeSelectedCityData" :is-fahrenheit="isFahrenheitMode" />
+    <div v-if="isLive" ref="earthFeatureSection" class="earth-feature-section">
+      <BaseDashboardCard class="dashboard-panel earth-filter-panel compact-selection">
+        <div class="earth-filter-heading">
+          <div>
+            <h3>지구 위치 선택</h3>
+            <p class="selection-guide">날씨 카드와 관계없이 지구에서 이동할 도시를 선택합니다.</p>
+          </div>
+
+          <div class="globe-view-actions">
+            <div class="globe-mode-switch" :class="{ spotlight: isGlobeSwitchPrompted }" aria-label="지구 화면 방식 선택">
+              <button type="button" :class="{ active: globeMode === '2d' }" :aria-pressed="globeMode === '2d'" @click="globeMode = '2d'">
+                <span class="mode-symbol">▧</span>
+                <span class="mode-copy"><small>CLASSIC</small><strong>2D 지도</strong></span>
+              </button>
+              <button type="button" :class="{ active: globeMode === '3d' }" :aria-pressed="globeMode === '3d'" @click="globeMode = '3d'">
+                <span class="mode-symbol">◉</span>
+                <span class="mode-copy"><small>WEBGL</small><strong>3D 지구</strong></span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="earth-selection-line">
+          <div class="selection-groups">
+            <div class="area-row">
+              <span class="area-label">국내</span>
+              <button v-for="item in weatherList" :key="item.id" v-show="item.area === '국내'" class="area-btn" :class="{ on: globeSelectedCity === item.name && item.area === '국내' }" @click="selectGlobeCity(item)">
+                {{ item.name }}
+              </button>
+            </div>
+
+            <div class="area-row">
+              <span class="area-label">해외</span>
+              <button v-for="item in weatherList" :key="item.id" v-show="item.area === '해외'" class="area-btn" :class="{ on: globeSelectedCity === item.name && item.area === '해외' }" @click="selectGlobeCity(item)">
+                {{ item.name }}
+              </button>
+            </div>
+          </div>
+
+          <button class="globe-reset-button" type="button" @click="resetGlobeCity">
+            <span>↺</span>
+            지구 초기화
+          </button>
+        </div>
+      </BaseDashboardCard>
+
+      <!-- 기존 2D 지구는 그대로 보존하고 선택한 모드에 맞는 화면만 보여 준다. -->
+      <div ref="earthGlobeSection" class="earth-globe-section">
+        <EarthGlobe v-if="globeMode === '2d'" :city-item="globeSelectedCityData" :is-fahrenheit="isFahrenheitMode" />
+        <EarthGlobe3D v-if="globeMode === '3d'" :city-item="globeSelectedCityData" :is-fahrenheit="isFahrenheitMode" @ready="centerStarlinkGlobe" />
+      </div>
+    </div>
 
     <BaseDashboardCard class="dashboard-panel filter-panel" :class="{ 'compact-selection': isLive }">
       <h3>{{ isLive ? '날씨 카드 선택' : '지역 선택' }}</h3>
@@ -466,13 +663,14 @@ const showDetail = (cityName, status) => {
     </BaseDashboardCard>
 
     <div class="status-bar">
-      {{ selectedCityInfo }}
+      {{ statusText }}
     </div>
 
     <div v-if="isHeatAlertVisible && selectedHotCity" class="heat-alert-backdrop" @click.self="closeHeatAlert">
       <MeteorShower />
       <PixelFireOverlay />
       <PanicCrowd />
+      <SkalaDisasterLogo type="heat" />
       <div class="heat-alert-panel" role="dialog" aria-modal="true" aria-label="폭염 경보">
         <p class="alert-label">EXTREME HEAT WARNING</p>
         <div class="alert-icon">⚠</div>
@@ -485,6 +683,7 @@ const showDetail = (cityName, status) => {
 
     <div v-if="isStormAlertVisible && selectedStormCity" class="storm-alert-backdrop" @click.self="closeStormAlert">
       <StormSurvivors />
+      <SkalaDisasterLogo type="storm" />
       <div class="storm-alert-panel" role="dialog" aria-modal="true" aria-label="폭풍우 경보">
         <p class="storm-alert-label">SEVERE STORM WARNING</p>
         <div class="storm-alert-icon">≋</div>
@@ -641,20 +840,6 @@ const showDetail = (cityName, status) => {
   font-size: 11px;
 }
 
-.storm-preview-button {
-  padding: 6px 10px;
-  border: 1px solid rgba(32, 92, 112, 0.24);
-  border-radius: 8px;
-  background: #315f71;
-  color: #f3fbff;
-  font-size: 11px;
-  cursor: pointer;
-}
-
-.storm-preview-button:hover {
-  background: #234c5e;
-}
-
 .service-state.loading .service-dot {
   animation: service-pulse 0.9s ease-in-out infinite alternate;
 }
@@ -667,6 +852,92 @@ const showDetail = (cityName, status) => {
 .service-state.error .service-dot {
   background: #e68a2e;
   box-shadow: 0 0 0 5px rgba(230, 138, 46, 0.12);
+}
+
+.search-result-preview {
+  margin-top: 17px;
+  padding-top: 15px;
+  border-top: 1px solid #dce8ed;
+}
+
+.search-result-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  color: #315b6d;
+  font-size: 13px;
+}
+
+.search-result-heading span {
+  padding: 3px 8px;
+  border-radius: 10px;
+  background: #e6f4f5;
+  color: #167c81;
+  font-size: 11px;
+}
+
+.search-result-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.search-result-list button {
+  display: grid;
+  grid-template-columns: auto minmax(85px, 1fr) minmax(90px, auto) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 13px;
+  border: 1px solid #cfe0e7;
+  border-radius: 10px;
+  background: #f8fcfd;
+  color: #31546a;
+  cursor: pointer;
+  text-align: left;
+}
+
+.search-result-list button:hover {
+  border-color: #69bfc3;
+  background: #effafa;
+}
+
+.search-result-flag {
+  font-size: 22px;
+}
+
+.search-result-city strong,
+.search-result-city small {
+  display: block;
+}
+
+.search-result-city small {
+  margin-top: 2px;
+  color: #7a929f;
+  font-size: 10px;
+}
+
+.search-result-weather {
+  overflow: hidden;
+  color: #708b99;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-result-list button > b {
+  color: #176f78;
+  font-size: 16px;
+}
+
+.search-result-empty {
+  margin: 0;
+  padding: 13px;
+  border: 1px dashed #cadde4;
+  border-radius: 9px;
+  color: #758e9c;
+  font-size: 12px;
+  text-align: center;
 }
 
 .weather-area + .weather-area {
@@ -690,7 +961,225 @@ const showDetail = (cityName, status) => {
   font-size: 13px;
 }
 
+.earth-feature-section {
+  scroll-margin-top: 155px;
+}
+
+.earth-filter-panel {
+  position: relative;
+  min-height: 190px;
+  padding-right: 208px;
+  box-sizing: border-box;
+}
+
+.earth-filter-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.earth-filter-heading .selection-guide {
+  margin-bottom: 16px;
+}
+
+.globe-view-actions {
+  position: absolute;
+  top: 50%;
+  right: 22px;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+  transform: translateY(-50%);
+}
+
+.globe-reset-button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 7px 10px;
+  border: 1px solid rgba(89, 141, 164, 0.32);
+  border-radius: 18px;
+  background: rgba(8, 27, 40, 0.76);
+  color: #8daab8;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.2s, background 0.2s, color 0.2s, transform 0.2s;
+}
+
+.globe-reset-button span {
+  color: #6dd8e8;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.globe-reset-button:hover {
+  border-color: rgba(102, 220, 237, 0.62);
+  background: rgba(16, 54, 70, 0.9);
+  color: #d8f6fa;
+  transform: translateY(-2px);
+}
+
+.globe-mode-switch {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 8px;
+  padding: 7px;
+  border: 1px solid rgba(89, 155, 185, 0.34);
+  border-radius: 17px;
+  background: linear-gradient(145deg, rgba(5, 20, 32, 0.96), rgba(10, 36, 51, 0.94));
+  box-shadow: inset 0 0 20px rgba(62, 176, 205, 0.06), 0 9px 22px rgba(0, 13, 24, 0.2);
+}
+
+.globe-mode-switch button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 154px;
+  min-height: 58px;
+  padding: 8px 13px;
+  border: 1px solid rgba(99, 145, 166, 0.2);
+  border-radius: 12px;
+  background: linear-gradient(145deg, rgba(30, 53, 67, 0.72), rgba(15, 34, 47, 0.86));
+  color: #93aebb;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.22s, box-shadow 0.22s, transform 0.22s, filter 0.22s;
+}
+
+.globe-mode-switch button:hover {
+  border-color: rgba(104, 219, 236, 0.58);
+  filter: brightness(1.12);
+  transform: translateY(-3px);
+}
+
+.mode-symbol {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgba(111, 170, 191, 0.24);
+  border-radius: 10px;
+  background: rgba(106, 162, 183, 0.08);
+  color: #87a9b8;
+  font-size: 19px;
+}
+
+.mode-copy small,
+.mode-copy strong {
+  display: block;
+}
+
+.mode-copy small {
+  margin-bottom: 3px;
+  color: #688797;
+  font-size: 8px;
+  letter-spacing: 1px;
+}
+
+.mode-copy strong {
+  color: #b8d0da;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.globe-mode-switch button.active {
+  border-color: #5ddcf0;
+  background:
+    radial-gradient(circle at 8% 12%, rgba(110, 235, 255, 0.25), transparent 37%),
+    linear-gradient(135deg, #155b73, #0b354c);
+  box-shadow: 0 8px 20px rgba(18, 125, 158, 0.32), inset 0 0 18px rgba(90, 220, 242, 0.1);
+  color: #fff;
+}
+
+.globe-mode-switch button.active .mode-symbol {
+  border-color: rgba(163, 242, 255, 0.48);
+  background: rgba(102, 226, 244, 0.18);
+  color: #d7fbff;
+  box-shadow: 0 0 14px rgba(86, 224, 243, 0.2);
+}
+
+.globe-mode-switch button.active small {
+  color: #83e9f5;
+}
+
+.globe-mode-switch button.active strong {
+  color: #fff;
+}
+
+.globe-mode-switch.spotlight {
+  animation: globe-mode-spotlight 0.72s ease-in-out 2 alternate;
+}
+
+@keyframes globe-mode-spotlight {
+  to {
+    border-color: rgba(104, 232, 249, 0.82);
+    box-shadow: 0 0 0 5px rgba(61, 204, 224, 0.12), 0 0 30px rgba(55, 194, 220, 0.32);
+    transform: scale(1.025);
+  }
+}
+
+@media (max-width: 640px) {
+  .earth-filter-panel {
+    min-height: 0;
+    padding-right: 22px;
+  }
+
+  .earth-filter-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .globe-view-actions {
+    position: static;
+    align-items: stretch;
+    margin-bottom: 16px;
+    transform: none;
+  }
+
+  .globe-reset-button {
+    margin-top: 12px;
+  }
+
+  .earth-selection-line {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .earth-selection-line .selection-groups {
+    width: 100%;
+  }
+
+  .globe-mode-switch {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .globe-mode-switch button {
+    width: auto;
+    min-width: 0;
+  }
+}
+
 /* 과제 5에서는 국내·해외 버튼과 초기화 버튼을 한 줄에 모아 높이를 줄인다. */
+.earth-selection-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.earth-filter-panel .earth-selection-line .selection-groups {
+  min-width: 0;
+  padding-bottom: 0;
+}
+
 .compact-selection .selection-groups {
   display: flex;
   align-items: center;
@@ -751,6 +1240,8 @@ const showDetail = (cityName, status) => {
 
 .heat-zone {
   overflow: hidden;
+  min-height: 190px;
+  box-sizing: border-box;
   border-color: #f08b35;
   background:
     radial-gradient(circle at 8% 120%, rgba(255, 107, 28, 0.62), transparent 28%),
@@ -779,9 +1270,22 @@ const showDetail = (cityName, status) => {
   font-size: 22px;
 }
 
-.heat-zone-header > span {
+.zone-title-line {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.zone-title-line strong {
+  color: #fff4dc;
+  font-size: clamp(15px, 2vw, 19px);
+  letter-spacing: -0.3px;
+  animation: guide-pulse 1.4s ease-in-out infinite alternate;
+}
+
+.zone-condition {
   color: #ffd7ae;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .heat-ticker {
@@ -829,6 +1333,7 @@ const showDetail = (cityName, status) => {
   grid-template-columns: auto auto;
   align-items: center;
   min-width: 205px;
+  min-height: 74px;
   padding: 13px 15px;
   border: 1px solid rgba(255, 205, 132, 0.66);
   border-radius: 12px;
@@ -874,6 +1379,153 @@ const showDetail = (cityName, status) => {
   border-radius: 10px;
   color: #ffd7ae;
   text-align: center;
+}
+
+.water-zone {
+  overflow: hidden;
+  min-height: 190px;
+  box-sizing: border-box;
+  border-color: #3186aa;
+  background:
+    radial-gradient(circle at 92% 120%, rgba(27, 161, 207, 0.42), transparent 30%),
+    linear-gradient(120deg, #061c2d, #0b3a55 55%, #051725);
+  color: #fff;
+}
+
+.water-zone-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.water-zone-header p {
+  margin: 0 0 4px;
+  color: #75d8f5;
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 1.5px;
+}
+
+.water-zone-header h3 {
+  margin: 0;
+  color: #fff;
+  font-size: 22px;
+}
+
+.water-zone .zone-condition {
+  color: #8fcbe0;
+}
+
+.water-zone .zone-title-line strong {
+  color: #dff8ff;
+}
+
+.water-ticker {
+  position: relative;
+  overflow: hidden;
+  margin: 0 -24px -24px;
+  padding: 0 0 24px;
+}
+
+.water-ticker::before,
+.water-ticker::after {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  bottom: 24px;
+  width: 60px;
+  content: '';
+  pointer-events: none;
+}
+
+.water-ticker::before {
+  left: 0;
+  background: linear-gradient(90deg, #061c2d, transparent);
+}
+
+.water-ticker::after {
+  right: 0;
+  background: linear-gradient(270deg, #051725, transparent);
+}
+
+.water-track {
+  display: flex;
+  width: max-content;
+  gap: 12px;
+  padding-left: 24px;
+  animation: water-ticker-move 18s linear infinite;
+}
+
+.water-ticker:hover .water-track {
+  animation-play-state: paused;
+}
+
+.water-city-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  min-width: 205px;
+  min-height: 74px;
+  padding: 13px 15px;
+  border: 1px solid rgba(145, 224, 250, 0.6);
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(31, 143, 185, 0.92), rgba(6, 54, 91, 0.94));
+  box-shadow: 0 8px 18px rgba(0, 8, 20, 0.32);
+  color: #fff;
+  cursor: pointer;
+  overflow: hidden;
+  text-align: left;
+  transition: transform 0.2s, filter 0.2s;
+}
+
+.water-city-card:hover {
+  filter: brightness(1.16);
+  transform: translateY(-4px) scale(1.02);
+}
+
+.water-city-card strong {
+  margin-right: 8px;
+  font-size: 17px;
+}
+
+.water-city-card span {
+  color: #d1f2ff;
+  font-size: 12px;
+}
+
+.water-city-card b {
+  grid-column: 1 / -1;
+  margin-top: 7px;
+  color: #bfefff;
+  font-size: 13px;
+}
+
+.water-city-card .demo-card-spacer {
+  visibility: hidden;
+}
+
+.water-city-card .water-flag {
+  margin-right: 7px;
+  font-size: 22px;
+}
+
+.water-city-card .demo-ribbon {
+  position: absolute;
+  z-index: 3;
+  top: 9px;
+  right: -29px;
+  width: 100px;
+  padding: 3px 0;
+  background: linear-gradient(90deg, #c8f6ff, #62cde8);
+  box-shadow: 0 3px 8px rgba(0, 25, 40, 0.3);
+  color: #07506c;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  text-align: center;
+  transform: rotate(42deg);
 }
 
 .heat-alert-backdrop {
@@ -1050,6 +1702,26 @@ const showDetail = (cityName, status) => {
   }
 }
 
+@keyframes water-ticker-move {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes guide-pulse {
+  from {
+    opacity: 0.72;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(4px);
+  }
+}
+
 @keyframes warning-enter {
   from {
     opacity: 0;
@@ -1202,6 +1874,23 @@ const showDetail = (cityName, status) => {
 
   .weather-grid {
     grid-template-columns: 1fr;
+  }
+
+  .search-result-list {
+    grid-template-columns: 1fr;
+  }
+
+  .heat-zone-header,
+  .water-zone-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .zone-title-line {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
   }
 }
 </style>

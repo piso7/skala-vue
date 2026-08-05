@@ -36,18 +36,17 @@ const router = useRouter()
 const route = useRoute()
 const searchQuery = ref('')
 
+// 처음 들어온 주소에 검색어가 있으면 입력창의 시작값으로 사용한다.
 onMounted(() => {
-  if (route.query.search) {
-    searchQuery.value = route.query.search
-  }
+  searchQuery.value = route.query.search || ''
 })
 
 // 과제 3의 검색 이벤트를 받아 주소의 ?search= 값까지 연결한다.
 const updateSearchQuery = (query) => {
   searchQuery.value = query
-  router.push({
+  router.replace({
     path: route.path,
-    query: { search: query || undefined },
+    query: query ? { search: query } : {},
   })
 }
 

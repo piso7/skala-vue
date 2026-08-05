@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 
 const props = defineProps({
   cityItem: {
@@ -50,8 +50,24 @@ const getEarthView = (cityItem, zoom, duration, easing) => {
 const earthPosition = ref(initialEarthView)
 const isEarthMoving = ref(false)
 const showPin = ref(false)
+const idlePositionX = ref(50)
+const isEarthDragging = ref(false)
 let moveFrame
+let idleRotationFrame
 let moveTimers = []
+let lastRotationTime = 0
+let dragStartX = 0
+let dragStartEarthX = 0
+
+const earthDisplayStyle = computed(() => {
+  if (props.cityItem) return earthPosition.value
+
+  return {
+    ...initialEarthView,
+    backgroundPosition: `${idlePositionX.value}% 50%`,
+    '--earth-duration': '0ms',
+  }
+})
 
 const clearEarthMotion = () => {
   cancelAnimationFrame(moveFrame)
@@ -64,9 +80,44 @@ const addMoveTimer = (callback, delay) => {
   moveTimers.push(timer)
 }
 
+// 도시를 고르지 않았을 때는 조금씩 배경 위치를 바꾸어 지구가 자전하는 것처럼 보이게 한다.
+const rotateIdleEarth = (time) => {
+  if (!lastRotationTime) lastRotationTime = time
+
+  const elapsedTime = time - lastRotationTime
+  lastRotationTime = time
+
+  if (!props.cityItem && !isEarthDragging.value) {
+    idlePositionX.value -= elapsedTime * 0.004
+  }
+
+  idleRotationFrame = requestAnimationFrame(rotateIdleEarth)
+}
+
+const startEarthDrag = (event) => {
+  if (props.cityItem || isEarthMoving.value) return
+
+  event.preventDefault()
+  isEarthDragging.value = true
+  dragStartX = event.clientX
+  dragStartEarthX = idlePositionX.value
+  event.currentTarget.setPointerCapture(event.pointerId)
+}
+
+const moveEarthDrag = (event) => {
+  if (!isEarthDragging.value) return
+
+  // 드래그한 거리만큼 경도를 바꾸어 손으로 지구를 돌리는 느낌을 만든다.
+  idlePositionX.value = dragStartEarthX - (event.clientX - dragStartX) * 0.18
+}
+
+const stopEarthDrag = () => {
+  isEarthDragging.value = false
+}
+
 watch(
   () => props.cityItem?.id,
-  (newCityId) => {
+  (newCityId, oldCityId) => {
     clearEarthMotion()
 
     if (!newCityId) {
@@ -77,41 +128,69 @@ watch(
     }
 
     const selectedCity = props.cityItem
-    const continentZoom = selectedCity.area === '국내' ? 220 : 200
-    const regionZoom = selectedCity.area === '국내' ? 420 : 320
+    const farZoom = 135
     const closeZoom = selectedCity.area === '국내' ? 1250 : 650
+    const moveStartDelay = oldCityId ? 680 : 60
+    const travelDuration = oldCityId ? 760 : 620
+    const zoomStartDelay = moveStartDelay + travelDuration + 40
+    const zoomDuration = 1380
 
-    // 도시를 바꿀 때마다 먼저 지구 전경으로 빠졌다가 대륙과 도시 순서로 접근한다.
+    // 다른 도시로 이동할 때는 현재 위치에서 먼저 충분히 멀어진다.
     isEarthMoving.value = true
     showPin.value = false
 
     moveFrame = requestAnimationFrame(() => {
-      // 멀리 있는 지구에서 출발해 대륙, 지역, 도시 순서로 점점 빠르게 접근한다.
-      earthPosition.value = getEarthView(selectedCity, 145, 700, 'cubic-bezier(0.4, 0, 0.6, 1)')
+      if (oldCityId) {
+        earthPosition.value = {
+          ...earthPosition.value,
+          backgroundSize: `auto ${farZoom}%`,
+          '--earth-duration': '640ms',
+          '--earth-easing': 'cubic-bezier(0.4, 0, 0.6, 1)',
+        }
+      } else {
+        // 첫 선택에서도 자전하던 위치에서 자연스럽게 도시 이동을 시작한다.
+        earthPosition.value = {
+          ...initialEarthView,
+          backgroundPosition: `${idlePositionX.value}% 50%`,
+        }
+      }
 
+      // 줌 아웃이 끝난 뒤에만 새 도시 방향으로 지구를 회전시킨다.
       addMoveTimer(() => {
-        earthPosition.value = getEarthView(selectedCity, continentZoom, 1300, 'cubic-bezier(0.22, 0.35, 0.45, 0.9)')
-      }, 620)
+        earthPosition.value = getEarthView(
+          selectedCity,
+          farZoom,
+          travelDuration,
+          'cubic-bezier(0.35, 0.1, 0.35, 1)',
+        )
+      }, moveStartDelay)
 
+      // 목적지에 도착한 뒤 중간 단계를 나누지 않고 한 번에 확대한다.
       addMoveTimer(() => {
-        earthPosition.value = getEarthView(selectedCity, regionZoom, 900, 'cubic-bezier(0.25, 0.3, 0.35, 0.95)')
-      }, 1850)
-
-      addMoveTimer(() => {
-        earthPosition.value = getEarthView(selectedCity, closeZoom, 620, 'cubic-bezier(0.28, 0.45, 0.2, 1)')
-      }, 2680)
+        earthPosition.value = getEarthView(
+          selectedCity,
+          closeZoom,
+          zoomDuration,
+          'cubic-bezier(0.2, 0.55, 0.18, 1)',
+        )
+      }, zoomStartDelay)
 
       addMoveTimer(() => {
         isEarthMoving.value = false
         showPin.value = true
-      }, 3340)
+      }, zoomStartDelay + zoomDuration + 80)
     })
   },
   { immediate: true },
 )
 
+onMounted(() => {
+  idleRotationFrame = requestAnimationFrame(rotateIdleEarth)
+})
+
 onBeforeUnmount(() => {
   clearEarthMotion()
+  cancelAnimationFrame(idleRotationFrame)
 })
 
 const earthStatus = computed(() => {
@@ -162,16 +241,30 @@ const longitudeText = computed(() => {
       </div>
     </div>
 
-    <div class="earth-stage" aria-hidden="true">
+    <div class="earth-stage">
       <div class="orbit orbit-one"></div>
       <div class="orbit orbit-two"></div>
-      <div class="earth-atmosphere" :class="{ idle: !cityItem, traveling: isEarthMoving }">
-        <div class="earth-sphere" :style="earthPosition"></div>
+      <div
+        class="earth-atmosphere"
+        :class="{ idle: !cityItem, traveling: isEarthMoving, dragging: isEarthDragging }"
+      >
+        <div
+          class="earth-sphere"
+          :style="earthDisplayStyle"
+          aria-label="회전할 수 있는 지구"
+          role="img"
+          @pointerdown="startEarthDrag"
+          @pointermove="moveEarthDrag"
+          @pointerup="stopEarthDrag"
+          @pointercancel="stopEarthDrag"
+          @lostpointercapture="stopEarthDrag"
+        ></div>
         <div v-if="showPin && cityItem" :key="cityItem.id" class="earth-pin">
           <span></span>
         </div>
         <div v-if="showPin && cityItem" :key="`pulse-${cityItem.id}`" class="pin-pulse"></div>
       </div>
+      <p v-if="!cityItem" class="earth-drag-guide">마우스로 잡아 좌우로 돌려보세요</p>
       <p class="earth-status">{{ earthStatus }}</p>
     </div>
   </section>
@@ -181,11 +274,11 @@ const longitudeText = computed(() => {
 .earth-explorer {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 0.82fr) minmax(460px, 1.18fr);
+  grid-template-columns: minmax(280px, 0.62fr) minmax(0, 1.38fr);
   align-items: center;
-  min-height: 500px;
+  min-height: 650px;
   margin-bottom: 18px;
-  padding: 36px 42px;
+  padding: 38px 28px 38px 42px;
   overflow: hidden;
   border: 1px solid rgba(112, 180, 215, 0.28);
   border-radius: 18px;
@@ -216,7 +309,7 @@ const longitudeText = computed(() => {
 }
 
 .earth-copy {
-  max-width: 420px;
+  max-width: 360px;
 }
 
 .earth-label {
@@ -278,13 +371,14 @@ const longitudeText = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 430px;
+  min-height: 610px;
+  margin-right: -70px;
 }
 
 .earth-atmosphere {
   position: relative;
-  width: 390px;
-  height: 390px;
+  width: 590px;
+  height: 590px;
   border-radius: 50%;
   box-shadow:
     0 0 0 1px rgba(152, 223, 255, 0.44),
@@ -298,6 +392,16 @@ const longitudeText = computed(() => {
 
 .earth-atmosphere.traveling {
   animation: earth-travel-glow 0.76s ease-in-out infinite alternate;
+}
+
+.earth-atmosphere.idle .earth-sphere {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.earth-atmosphere.dragging .earth-sphere {
+  cursor: grabbing;
 }
 
 .earth-sphere {
@@ -332,16 +436,16 @@ const longitudeText = computed(() => {
 
 .orbit {
   position: absolute;
-  width: 455px;
-  height: 150px;
+  width: 690px;
+  height: 230px;
   border: 1px solid rgba(116, 212, 245, 0.22);
   border-radius: 50%;
   transform: rotate(-18deg);
 }
 
 .orbit-two {
-  width: 450px;
-  height: 170px;
+  width: 680px;
+  height: 255px;
   transform: rotate(65deg);
 }
 
@@ -400,6 +504,17 @@ const longitudeText = computed(() => {
   transform: translateX(50%);
 }
 
+.earth-drag-guide {
+  position: absolute;
+  right: 50%;
+  bottom: 37px;
+  margin: 0;
+  color: rgba(203, 235, 247, 0.72);
+  font-size: 11px;
+  letter-spacing: 0.3px;
+  transform: translateX(50%);
+}
+
 @keyframes earth-idle-float {
   from {
     transform: translateY(4px) scale(0.99);
@@ -453,6 +568,7 @@ const longitudeText = computed(() => {
 @media (max-width: 820px) {
   .earth-explorer {
     grid-template-columns: 1fr;
+    min-height: 0;
     padding: 28px 24px;
   }
 
@@ -461,22 +577,34 @@ const longitudeText = computed(() => {
   }
 
   .earth-stage {
+    min-height: 550px;
     margin-top: 16px;
+    margin-right: 0;
+  }
+
+  .earth-atmosphere {
+    width: min(520px, 82vw);
+    height: auto;
+    aspect-ratio: 1;
+  }
+
+  .orbit {
+    width: min(620px, 94vw);
   }
 }
 
 @media (max-width: 460px) {
   .earth-atmosphere {
-    width: 285px;
-    height: 285px;
+    width: min(360px, 90vw);
+    height: auto;
   }
 
   .earth-stage {
-    min-height: 325px;
+    min-height: 390px;
   }
 
   .orbit {
-    width: 320px;
+    width: min(390px, 96vw);
   }
 }
 </style>

@@ -16,7 +16,7 @@ const routes = [
     name: 'WeatherAbout',
     components: {
       task4: () => import('../views/WeatherAboutView.vue'),
-      task5: () => import('../views/WeatherAboutView.vue'),
+      task5: () => import('../views/WeatherLiveAboutView.vue'),
     },
   },
   {
@@ -41,8 +41,8 @@ const routes = [
 ]
 
 const router = createRouter({
-  // 브라우저 주소창의 경로를 사용한다.
-  history: createWebHistory(),
+  // 배포 주소의 기본 경로를 함께 넘겨 새로고침해도 같은 라우트를 찾게 한다.
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes,
 })
 
