@@ -5,7 +5,7 @@
 ## 링크
 
 - GitHub 저장소: https://github.com/piso7/skala-vue
-- Vercel 배포: 배포 완료 후 주소 추가
+- Vercel 배포: https://skala-vue-mocha.vercel.app
 
 ## 화면
 
@@ -122,4 +122,4 @@ src/
 - [x] Element Plus 적용
 - [x] Vite 프로덕션 빌드
 - [x] 제출용 화면 스크린샷 2장
-- [ ] Vercel 최종 배포 주소 확인
+- [x] Vercel 최종 배포 주소 확인
