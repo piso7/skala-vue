@@ -358,14 +358,25 @@ const openStarlinkFeature = async () => {
   }, 500)
 }
 
+const closeStarlinkFeature = () => {
+  clearTimeout(starlinkModeTimer)
+  clearTimeout(starlinkHighlightTimer)
+  globeMode.value = '2d'
+  isGlobeSwitchPrompted.value = false
+}
+
+// 화면이 다시 열렸을 때 지난 요청을 반복하지 않고, 버튼을 새로 누른 경우에만 실행한다.
 watch(
   starlinkRequest,
   (requestCount) => {
-    if (requestCount > 0 && props.isLive) {
+    if (!props.isLive) return
+
+    if (requestCount > 0) {
       openStarlinkFeature()
+    } else {
+      closeStarlinkFeature()
     }
   },
-  { immediate: true },
 )
 
 onBeforeUnmount(() => {

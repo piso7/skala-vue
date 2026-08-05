@@ -32,6 +32,19 @@ const openStarlinkTracking = async () => {
   await nextTick()
   starlinkRequest.value += 1
 }
+
+// 날씨 대시보드는 스타링크 기능을 실행하지 않고 첫 화면으로만 이동한다.
+const openWeatherDashboard = async () => {
+  activeTask.value = 5
+  starlinkRequest.value = 0
+
+  if (router.currentRoute.value.path !== '/') {
+    await router.push('/')
+  }
+
+  await nextTick()
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
 </script>
 
 <template>
@@ -67,7 +80,7 @@ const openStarlinkTracking = async () => {
       </div>
       <div class="router-dashboard-wrapper">
         <nav class="navigation-bar">
-          <RouterLink to="/" class="nav-item">🌦️ 날씨 대시보드</RouterLink>
+          <RouterLink to="/" class="nav-item" @click.prevent="openWeatherDashboard">🌦️ 날씨 대시보드</RouterLink>
           <span class="divider">|</span>
           <RouterLink to="/about" class="nav-item">ℹ️ 서비스 소개</RouterLink>
           <button class="starlink-nav-button" type="button" @click="openStarlinkTracking">
