@@ -1,0 +1,12 @@
+node_modules
+dist
+.git
+.vercel
+.env.local
+.eslintcache
+backups
+tmp
+tmp-weather-*
+design-qa.md
+*.pdf
+*.zip
