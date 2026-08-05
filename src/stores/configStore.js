@@ -2,16 +2,15 @@ import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 
 export const useConfigStore = defineStore('config', () => {
-  // 1. state: 단위를 저장하는 변수 (초기값은 'celsius')
-  // 값은 오직 'celsius' 또는 'fahrenheit' 두 가지만 가집니다.
+  // state: 현재 대시보드에서 사용할 온도 단위
   const unit = ref('celsius')
 
-  // 2. getters: 현재 단위 상태에 맞춰 화면에 뿌릴 기호(℃ / ℉)를 실시간 리턴
+  // getters: 단위가 바뀌면 화면의 기호도 함께 갱신된다.
   const unitSymbol = computed(() => {
     return unit.value === 'celsius' ? '℃' : '℉'
   })
 
-  // 3. actions: 버튼 클릭 시 'celsius'와 'fahrenheit'를 토글(스위칭)하는 함수
+  // actions: 단위 변경은 스토어의 함수에서만 처리한다.
   function toggleUnit() {
     unit.value = unit.value === 'celsius' ? 'fahrenheit' : 'celsius'
   }

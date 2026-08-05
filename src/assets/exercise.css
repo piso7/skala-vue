@@ -148,6 +148,224 @@ input {
   grid-column: 1 / -1;
   max-width: 1180px;
 }
+.app-container-task3 {
+  grid-column: 1 / -1;
+  max-width: 1180px;
+}
+.app-container-task4 {
+  grid-column: 1 / -1;
+  max-width: 1180px;
+}
+.app-container-task5 {
+  grid-column: 1 / -1;
+  max-width: 1180px;
+}
+
+/* 과제 5에만 적용되는 어두운 대시보드 테마 */
+.app-container-task5 {
+  border: 1px solid rgba(92, 135, 164, 0.26);
+  background:
+    radial-gradient(circle at 92% 3%, rgba(24, 104, 142, 0.18), transparent 30%),
+    radial-gradient(circle at 8% 72%, rgba(20, 75, 109, 0.14), transparent 28%),
+    linear-gradient(145deg, #09131f, #0d1c2a 58%, #08121d);
+  box-shadow: 0 28px 70px rgba(0, 5, 13, 0.48);
+  color: #d9e8f2;
+}
+
+.app-container-task5 > h1 {
+  color: #f0f7fb;
+}
+
+.app-container-task5 > hr {
+  border-color: #263a49;
+}
+
+.app-container-task5 .navigation-bar {
+  border: 1px solid #263c4d;
+  background: rgba(13, 31, 46, 0.92);
+  box-shadow: 0 10px 28px rgba(0, 6, 14, 0.24);
+}
+
+.app-container-task5 .live-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 18px;
+  padding: 5px 9px;
+  border: 1px solid #2b594f;
+  border-radius: 14px;
+  background: rgba(19, 70, 59, 0.34);
+  color: #87c8b7;
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+}
+
+.app-container-task5 .live-indicator i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #35d399;
+  box-shadow: 0 0 8px rgba(53, 211, 153, 0.85);
+}
+
+.app-container-task5 .nav-item,
+.app-container-task5 .unit-toggler {
+  color: #8fa9bb;
+}
+
+.app-container-task5 .unit-toggler strong,
+.app-container-task5 .navigation-bar .router-link-exact-active {
+  color: #78d8de;
+}
+
+.app-container-task5 .base-dashboard-card:not(.heat-zone) {
+  border-color: #253b4b;
+  background: rgba(15, 31, 45, 0.96);
+  box-shadow: 0 12px 30px rgba(0, 7, 15, 0.24);
+}
+
+.app-container-task5 .dashboard-panel h3,
+.app-container-task5 .search-bar h3,
+.app-container-task5 .weather-card h4,
+.app-container-task5 .temperature {
+  color: #e9f4f8;
+}
+
+.app-container-task5 .search-bar input {
+  border-color: #345064;
+  background: #091824;
+  color: #e8f3f7;
+}
+
+.app-container-task5 .search-bar input::placeholder {
+  color: #647f91;
+}
+
+.app-container-task5 .search-bar p,
+.app-container-task5 .weather-update,
+.app-container-task5 .area-title,
+.app-container-task5 .area-label,
+.app-container-task5 .selection-guide,
+.app-container-task5 .weather-status,
+.app-container-task5 .weather-info {
+  color: #8ca8ba;
+}
+
+.app-container-task5 .favorite-row,
+.app-container-task5 .favorite-weather-area,
+.app-container-task5 .weather-info {
+  border-color: #2b4252;
+}
+
+.app-container-task5 .service-state {
+  border-color: #264c49;
+  background: rgba(12, 42, 43, 0.74);
+}
+
+.app-container-task5 .service-message strong,
+.app-container-task5 .service-stats b {
+  color: #a7e8d7;
+}
+
+.app-container-task5 .service-message p,
+.app-container-task5 .service-stats span {
+  color: #7fa69e;
+}
+
+.app-container-task5 .service-stats span {
+  background: rgba(5, 22, 29, 0.7);
+}
+
+.app-container-task5 .service-state.error {
+  border-color: #71502e;
+  background: rgba(68, 42, 18, 0.72);
+}
+
+.app-container-task5 .area-btn,
+.app-container-task5 .btn-all,
+.app-container-task5 .favorite-city-btn {
+  border-color: #355266;
+  background: #102637;
+  color: #b8cedb;
+}
+
+.app-container-task5 .clear-favorite-button {
+  color: #7894a5;
+}
+
+.app-container-task5 .area-btn:hover,
+.app-container-task5 .btn-all:hover {
+  border-color: #4ba8ad;
+  background: #173849;
+}
+
+.app-container-task5 .area-btn.on {
+  border-color: #36aeb3;
+  background: linear-gradient(135deg, #15979c, #08747a);
+  color: #fff;
+}
+
+.app-container-task5 .weather-card {
+  border-color: #2c4658;
+  background: linear-gradient(145deg, #142838, #0d1c29);
+  box-shadow: 0 8px 22px rgba(0, 7, 15, 0.25);
+}
+
+.app-container-task5 .weather-card:hover {
+  border-color: #57b6bb;
+  box-shadow: 0 17px 34px rgba(0, 5, 12, 0.42);
+}
+
+.app-container-task5 .area-tag,
+.app-container-task5 .favorite-button,
+.app-container-task5 .btn-detail {
+  border-color: #375164;
+  background: rgba(8, 24, 36, 0.88);
+  color: #a9c2d1;
+}
+
+.app-container-task5 .btn-detail:hover {
+  border-color: #52b4b9;
+  background: #12323d;
+  color: #7ce0e3;
+}
+
+.app-container-task5 .status-bar {
+  border-left-color: #41c4c7;
+  background: #102936;
+  color: #9bdcdf;
+}
+
+.app-container-task5 .detail-container,
+.app-container-task5 .description-box {
+  border-color: #294252;
+  background: #102331;
+  color: #afc6d4;
+}
+
+.app-container-task5 .detail-container h3,
+.app-container-task5 .detail-title h4,
+.app-container-task5 .detail-title > strong,
+.app-container-task5 .detail-grid strong {
+  color: #eef7fa;
+}
+
+.app-container-task5 .info-card,
+.app-container-task5 .detail-grid div {
+  background: #0a1925;
+}
+
+.app-container-task5 .detail-title span,
+.app-container-task5 .detail-grid span,
+.app-container-task5 .updated-time,
+.app-container-task5 .description-box li {
+  color: #8faabd;
+}
+.router-dashboard-wrapper {
+  width: 100%;
+  margin: 0 auto;
+}
 .app-container-task1 .dashboard-wrapper {
   width: auto;
 }

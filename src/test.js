@@ -1,1 +1,1 @@
-const region = '수원시 권선구'
+export const region = '수원시 권선구'

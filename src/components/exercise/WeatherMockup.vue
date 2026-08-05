@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 
-// 4일차 API 연동을 대비한 가상의 백엔드 데이터 배열 (v-for 및 :key 실습용)
+// 과제 1에서는 서버 대신 고정된 날씨 목록을 사용한다.
 const weatherList = ref([
   { id: 'city_01', name: '서울', temp: 28, status: '맑음', area: '국내' },
   { id: 'city_02', name: '수원', temp: 24, status: '비', area: '국내' },
@@ -15,7 +15,7 @@ const weatherList = ref([
   { id: 'city_10', name: '시드니', temp: 15, status: '비', area: '해외' },
 ])
 
-// 검색어 및 알림창 제어용 데이터 (v-model 대용 한글 처리 및 이벤트 실습용)
+// 검색어와 선택 결과를 화면에 바로 반영하기 위한 상태
 const searchQuery = ref('')
 const selectedCityInfo = ref('카드를 클릭하거나 검색해 보세요.')
 const selectedCity = ref('')
@@ -33,7 +33,7 @@ const showAllCity = () => {
   selectedCityInfo.value = '카드를 클릭하거나 검색해 보세요.'
 }
 
-// 알림 대행 함수 (window 객체 격리 우회)
+// 상세보기는 과제 1의 범위에 맞춰 간단한 알림창으로 표시한다.
 const showDetail = (cityName, status) => {
   window.alert(`${cityName}의 현재 날씨는 [${status}] 상태입니다.`)
 }
@@ -117,4 +117,3 @@ const showDetail = (cityName, status) => {
     </div>
   </div>
 </template>
-

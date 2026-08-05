@@ -38,4 +38,10 @@ __screenshots__/
 # Vite
 *.timestamp-*-*.mjs
 
+# 과제 화면을 확인하며 만든 로컬 자료
+tmp/
+tmp-weather-*
+backups/
+design-qa.md
+
 *.pdf
