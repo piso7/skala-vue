@@ -1341,9 +1341,10 @@ const showDetail = (cityName, status) => {
 
 .heat-city-card {
   display: grid;
-  grid-template-columns: auto auto;
+  grid-template-columns: auto auto 1fr;
   align-items: center;
   min-width: 205px;
+  height: 74px;
   min-height: 74px;
   padding: 13px 15px;
   border: 1px solid rgba(255, 205, 132, 0.66);
@@ -1478,6 +1479,7 @@ const showDetail = (cityName, status) => {
   grid-template-columns: auto auto;
   align-items: center;
   min-width: 205px;
+  height: 74px;
   min-height: 74px;
   padding: 13px 15px;
   border: 1px solid rgba(145, 224, 250, 0.6);
