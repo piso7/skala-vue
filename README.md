@@ -13,9 +13,29 @@
 
 ![실시간 날씨 대시보드](docs/screenshots/weather-dashboard-main.png)
 
+### 불지옥·물지옥 도시 트랙
+
+![불지옥과 물지옥 도시 트랙](docs/screenshots/weather-dashboard-tracks.png)
+
+### 폭염 경보 인터랙션
+
+![폭염 경보 인터랙션](docs/screenshots/weather-dashboard-heat-alert.png)
+
+### 폭풍우 경보 인터랙션
+
+![폭풍우 경보 인터랙션](docs/screenshots/weather-dashboard-storm-alert.png)
+
+### 2D 지구 도시 위치 탐색
+
+![2D 지구 도시 위치 탐색](docs/screenshots/weather-dashboard-earth-2d.png)
+
 ### 3D 지구와 스타링크 궤도 시뮬레이션
 
 ![3D 지구와 스타링크 궤도 시뮬레이션](docs/screenshots/weather-dashboard-starlink.png)
+
+### 다중 도시 선택과 날씨 카드
+
+![다중 도시 선택과 날씨 카드](docs/screenshots/weather-dashboard-weather-cards.png)
 
 ## 구현 기능
 
@@ -121,5 +141,5 @@ src/
 - [x] Axios 실제 API와 로딩·오류 처리
 - [x] Element Plus 적용
 - [x] Vite 프로덕션 빌드
-- [x] 제출용 화면 스크린샷 2장
+- [x] 제출용 화면 스크린샷 7장
 - [x] Vercel 최종 배포 주소 확인
